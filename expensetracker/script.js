@@ -1,114 +1,148 @@
+// ========================================
+// CHECK LOGIN
+// ========================================
 
-const loggedInUser = localStorage.getItem("loggedInUser");
+const token = localStorage.getItem("token");
 
-if (!loggedInUser) {
+if (!token) {
     window.location.href = "login.html";
 }
+
+
+// ========================================
+// ELEMENTS
+// ========================================
+
 const form = document.getElementById("expenseForm");
 const expenseList = document.getElementById("expenseList");
 
 const API_URL = "http://localhost:3000/api/expenses";
+
 let editId = null;
 
-// LOAD EXPENSES WHEN PAGE OPENS
-displayExpenses();
 
+// ========================================
+// LOAD EXPENSES WHEN PAGE OPENS
+// ========================================
+
+getExpenses();
+
+
+// ========================================
 // FORM SUBMIT
+// ========================================
+
 form.addEventListener("submit", async (e) => {
+
     e.preventDefault();
+
     const amount =
         document.getElementById("amount").value;
+
     const description =
         document.getElementById("description").value;
+
     const category =
         document.getElementById("category").value;
-    const expenseData = {
+
+
+    // ========================================
+    // IF EDIT MODE
+    // ========================================
+
+    if (editId !== null) {
+
+        await updateExpense(
+            editId,
+            amount,
+            description,
+            category
+        );
+
+        return;
+    }
+
+
+    // ========================================
+    // ADD MODE
+    // ========================================
+
+    await addExpense(
         amount,
         description,
         category
-    };
+    );
 
-    //Update
-    try {
-        if (editId) {
-            const response = await fetch(
-                `${API_URL}/${editId}`,
-                {
-                    method: "PUT",
-
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
-
-                    body: JSON.stringify(expenseData)
-                }
-            );
-            const result = await response.json();
-            console.log(result);
-            editId = null;
-        }
-        // ADD
-        else {
-            const response = await fetch(
-                API_URL,
-                {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
-
-                    body: JSON.stringify(expenseData)
-                }
-            );
-            const result = await response.json();
-            console.log(result);
-        }
-        form.reset();
-        displayExpenses();
-    } catch (error) {
-        console.error(
-            "Error:",
-            error
-        );
-        alert("Something went wrong");
-    }
 });
 
-// GET ALL EXPENSES
-async function displayExpenses() {
+
+// ========================================
+// GET EXPENSES
+// ========================================
+
+async function getExpenses() {
+
     try {
-        const response =await fetch(API_URL);
-        const result =await response.json();
-        console.log(result);
+
+        const response = await fetch(
+            API_URL,
+            {
+                method: "GET",
+
+                headers: {
+                    "Authorization": token
+                }
+            }
+        );
+
+
+        // Token expired / invalid
+
+        if (response.status === 401) {
+
+            localStorage.removeItem("token");
+
+            localStorage.removeItem("loggedInUser");
+
+            localStorage.removeItem("user");
+
+            window.location.href = "login.html";
+
+            return;
+        }
+
+
+        const result = await response.json();
+
+        console.log("GET EXPENSES:", result);
+
+
+        if (!response.ok) {
+
+            alert(
+                result.message ||
+                "Unable to fetch expenses"
+            );
+
+            return;
+        }
+
+
+        // Clear old expenses
+
         expenseList.innerHTML = "";
-        result.data.forEach(expense => {
-            const li =document.createElement("li");
-            li.className ="list-group-item d-flex justify-content-between align-items-center"
-            li.innerHTML = `<span><strong>₹${expense.amount}</strong>- ${expense.category}-${expense.description}</span> <div>
-
-                    <button
-                        class="btn btn-warning btn-sm me-2"
-                        onclick="editExpense(${expense.id})"
-                    >
-                        Edit
-                    </button>
 
 
-                    <button
-                        class="btn btn-danger btn-sm"
-                        onclick="deleteExpense(${expense.id})"
-                    >
-                        Delete
-                    </button>
+        // Backend returns:
+        // result.expenses
 
-                </div>
+        result.expenses.forEach(
+            expense => {
 
-            `;
+                addNewExpenseUI(expense);
 
-
-            expenseList.appendChild(li);
-
-        });
+            }
+        );
 
 
     } catch (error) {
@@ -119,32 +153,293 @@ async function displayExpenses() {
         );
 
     }
-
 }
 
 
-// DELETE EXPENSE
+// ========================================
+// ADD EXPENSE
+// ========================================
 
-async function deleteExpense(id) {
+async function addExpense(
+    amount,
+    description,
+    category
+) {
 
     try {
 
-        const response =
-            await fetch(
-                `${API_URL}/${id}`,
-                {
-                    method: "DELETE"
-                }
+        const response = await fetch(
+            API_URL,
+            {
+                method: "POST",
+
+                headers: {
+
+                    "Content-Type":
+                        "application/json",
+
+                    "Authorization":
+                        token
+
+                },
+
+                body: JSON.stringify({
+
+                    amount: amount,
+
+                    description: description,
+
+                    category: category
+
+                })
+            }
+        );
+
+
+        if (response.status === 401) {
+
+            localStorage.removeItem("token");
+
+            window.location.href =
+                "login.html";
+
+            return;
+        }
+
+
+        const result = await response.json();
+
+        console.log(
+            "ADD EXPENSE:",
+            result
+        );
+
+
+        if (response.ok) {
+
+            alert(
+                "Expense added successfully"
             );
+
+
+            // Clear form
+
+            form.reset();
+
+
+            // Add newly created expense
+
+            addNewExpenseUI(
+                result.expense
+            );
+
+
+        } else {
+
+            alert(
+                result.message ||
+                "Unable to add expense"
+            );
+        }
+
+
+    } catch (error) {
+
+        console.error(
+            "Error adding expense:",
+            error
+        );
+
+    }
+}
+
+
+// ========================================
+// UPDATE EXPENSE
+// ========================================
+
+async function updateExpense(
+    id,
+    amount,
+    description,
+    category
+) {
+
+    try {
+
+        const response = await fetch(
+            `${API_URL}/${id}`,
+            {
+                method: "PUT",
+
+                headers: {
+
+                    "Content-Type":
+                        "application/json",
+
+                    "Authorization":
+                        token
+
+                },
+
+                body: JSON.stringify({
+
+                    amount: amount,
+
+                    description:
+                        description,
+
+                    category:
+                        category
+
+                })
+            }
+        );
+
+
+        if (response.status === 401) {
+
+            localStorage.removeItem("token");
+
+            window.location.href =
+                "login.html";
+
+            return;
+        }
 
 
         const result =
             await response.json();
 
-        console.log(result);
+
+        console.log(
+            "UPDATE EXPENSE:",
+            result
+        );
 
 
-        displayExpenses();
+        if (response.ok) {
+
+            alert(
+                "Expense updated successfully"
+            );
+
+
+            // Reset edit mode
+
+            editId = null;
+
+
+            // Reset form
+
+            form.reset();
+
+
+            // Change button back
+
+            const button =
+                form.querySelector(
+                    "button[type='submit']"
+                );
+
+            if (button) {
+
+                button.innerText =
+                    "Add Expense";
+
+            }
+
+
+            // Reload expenses
+
+            getExpenses();
+
+
+        } else {
+
+            alert(
+                result.message ||
+                "Unable to update expense"
+            );
+
+        }
+
+
+    } catch (error) {
+
+        console.error(
+            "Error updating expense:",
+            error
+        );
+
+    }
+}
+
+
+// ========================================
+// DELETE EXPENSE
+// ========================================
+
+async function deleteExpense(id) {
+
+    try {
+
+        const response = await fetch(
+            `${API_URL}/${id}`,
+            {
+                method: "DELETE",
+
+                headers: {
+
+                    "Authorization":
+                        token
+
+                }
+            }
+        );
+
+
+        if (response.status === 401) {
+
+            localStorage.removeItem("token");
+
+            window.location.href =
+                "login.html";
+
+            return;
+        }
+
+
+        const result =
+            await response.json();
+
+
+        console.log(
+            "DELETE EXPENSE:",
+            result
+        );
+
+
+        if (response.ok) {
+
+            alert(
+                "Expense deleted successfully"
+            );
+
+
+            // Reload expenses
+
+            getExpenses();
+
+
+        } else {
+
+            alert(
+                result.message ||
+                "Unable to delete expense"
+            );
+
+        }
 
 
     } catch (error) {
@@ -155,48 +450,99 @@ async function deleteExpense(id) {
         );
 
     }
-
 }
 
+
+// ========================================
 // EDIT EXPENSE
+// ========================================
 
 async function editExpense(id) {
 
     try {
 
-        const response =
-            await fetch(API_URL);
+        const response = await fetch(
+            API_URL,
+            {
+                method: "GET",
+
+                headers: {
+
+                    "Authorization":
+                        token
+
+                }
+            }
+        );
+
+
+        if (response.status === 401) {
+
+            localStorage.removeItem("token");
+
+            window.location.href =
+                "login.html";
+
+            return;
+        }
+
 
         const result =
             await response.json();
 
 
+        console.log(
+            "EDIT EXPENSE:",
+            result
+        );
+
+
+        if (!response.ok) {
+
+            alert(
+                result.message ||
+                "Unable to get expense"
+            );
+
+            return;
+        }
+
+
         const expense =
-            result.data.find(
-                expense => expense.id === id
+            result.expenses.find(
+                expense =>
+                    expense.id === id
             );
 
 
         if (!expense) {
 
-            alert("Expense not found");
+            alert(
+                "Expense not found"
+            );
 
             return;
-
         }
 
 
-        document.getElementById("amount").value =
-            expense.amount;
+        // Put values inside form
+
+        document.getElementById(
+            "amount"
+        ).value = expense.amount;
 
 
-        document.getElementById("description").value =
-            expense.description;
+        document.getElementById(
+            "description"
+        ).value = expense.description;
 
 
-        document.getElementById("category").value =
-            expense.category;
+        document.getElementById(
+            "category"
+        ).value = expense.category;
 
+
+        // Store ID
 
         editId = id;
 
@@ -204,10 +550,17 @@ async function editExpense(id) {
         // Change button text
 
         const button =
-            form.querySelector("button[type='submit']");
+            form.querySelector(
+                "button[type='submit']"
+            );
 
-        button.innerText =
-            "Update Expense";
+
+        if (button) {
+
+            button.innerText =
+                "Update Expense";
+
+        }
 
 
     } catch (error) {
@@ -218,23 +571,72 @@ async function editExpense(id) {
         );
 
     }
-
 }
-const logoutBtn =
-    document.getElementById("logoutBtn");
 
 
-logoutBtn.addEventListener(
-    "click",
-    () => {
+// ========================================
+// DISPLAY EXPENSE IN UI
+// ========================================
 
-        localStorage.removeItem(
-            "loggedInUser"
-        );
+function addNewExpenseUI(expense) {
+
+    const li =
+        document.createElement("li");
 
 
-        window.location.href =
-            "login.html";
+    li.className =
+        "list-group-item d-flex justify-content-between align-items-center";
 
-    }
-);
+
+    li.innerHTML = `
+
+        <span>
+            <strong>₹${expense.amount}</strong>
+            - ${expense.category}
+            - ${expense.description}
+        </span>
+
+        <div>
+
+            <button
+                class="btn btn-warning btn-sm me-2"
+                onclick="editExpense(${expense.id})"
+            >
+                Edit
+            </button>
+
+
+            <button
+                class="btn btn-danger btn-sm"
+                onclick="deleteExpense(${expense.id})"
+            >
+                Delete
+            </button>
+
+        </div>
+
+    `;
+
+
+    expenseList.appendChild(li);
+}
+
+
+// ========================================
+// LOGOUT
+// ========================================
+
+function logout() {
+
+    localStorage.removeItem("token");
+
+    localStorage.removeItem("user");
+
+    localStorage.removeItem(
+        "loggedInUser"
+    );
+
+
+    window.location.href =
+        "login.html";
+}

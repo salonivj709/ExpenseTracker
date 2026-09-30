@@ -11,98 +11,197 @@ const addExpense = async (req, res) => {
             category
         } = req.body;
 
-        const expense = await Expense.create({
-            amount,
-            description,
-            category
-        });
 
-        res.status(201).send({
+        if (
+            !amount ||
+            !description ||
+            !category
+        ) {
+
+            return res.status(400).json({
+
+                success: false,
+
+                message: "All fields are required"
+
+            });
+        }
+
+
+        // IMPORTANT
+        // User comes from JWT
+
+        const expense =
+            await Expense.create({
+
+                amount: amount,
+
+                description: description,
+
+                category: category,
+
+                userId: req.user.id
+
+            });
+
+
+        return res.status(201).json({
+
+            success: true,
+
             message: "Expense added successfully",
-            data: expense
+
+            expense: expense
+
         });
 
-    } catch (err) {
 
-        console.log(err.message);
+    } catch (error) {
 
-        res.status(500).send({
-            message: "Error adding expense",
-            error: err.message
+        console.log(error);
+
+        return res.status(500).json({
+
+            success: false,
+
+            message: "Error adding expense"
+
         });
-
     }
-
 };
 
 
-// GET ALL EXPENSES
+
+// =====================================
+// GET EXPENSES
+// =====================================
+
 const getExpenses = async (req, res) => {
 
     try {
 
-        const expenses = await Expense.findAll({
-            order: [["id", "DESC"]]
-        });
+        const expenses =
+            await Expense.findAll({
 
-        res.status(200).send({
+                where: {
+
+                    // ONLY CURRENT USER
+                    userId: req.user.id
+
+                },
+
+                order: [
+                    ["id", "DESC"]
+                ]
+
+            });
+
+
+        return res.status(200).json({
+
+            success: true,
+
             message: "Expenses fetched successfully",
-            data: expenses
+
+            expenses: expenses
+
         });
 
-    } catch (err) {
 
-        res.status(500).send({
-            message: "Error fetching expenses",
-            error: err.message
+    } catch (error) {
+
+        console.log(error);
+
+        return res.status(500).json({
+
+            success: false,
+
+            message: "Error fetching expenses"
+
         });
-
     }
-
 };
 
 
+
+// =====================================
 // DELETE EXPENSE
+// =====================================
+
 const deleteExpense = async (req, res) => {
 
     try {
 
         const id = req.params.id;
 
-        const expense = await Expense.findByPk(id);
+
+        // Find expense belonging
+        // to CURRENT USER
+
+        const expense =
+            await Expense.findOne({
+
+                where: {
+
+                    id: id,
+
+                    userId: req.user.id
+
+                }
+
+            });
+
 
         if (!expense) {
 
-            return res.status(404).send({
-                message: "Expense not found"
-            });
+            return res.status(404).json({
 
+                success: false,
+
+                message: "Expense not found"
+
+            });
         }
+
 
         await expense.destroy();
 
-        res.status(200).send({
+
+        return res.status(200).json({
+
+            success: true,
+
             message: "Expense deleted successfully"
+
         });
 
-    } catch (err) {
 
-        res.status(500).send({
-            message: "Error deleting expense",
-            error: err.message
+    } catch (error) {
+
+        console.log(error);
+
+        return res.status(500).json({
+
+            success: false,
+
+            message: "Error deleting expense"
+
         });
-
     }
-
 };
 
 
+
+// =====================================
 // UPDATE EXPENSE
+// =====================================
+
 const updateExpense = async (req, res) => {
 
     try {
 
         const id = req.params.id;
+
 
         const {
             amount,
@@ -110,42 +209,83 @@ const updateExpense = async (req, res) => {
             category
         } = req.body;
 
-        const expense = await Expense.findByPk(id);
+
+        // VERY IMPORTANT
+        // Only find expense belonging
+        // to logged-in user
+
+        const expense =
+            await Expense.findOne({
+
+                where: {
+
+                    id: id,
+
+                    userId: req.user.id
+
+                }
+
+            });
+
 
         if (!expense) {
 
-            return res.status(404).send({
-                message: "Expense not found"
-            });
+            return res.status(404).json({
 
+                success: false,
+
+                message: "Expense not found"
+
+            });
         }
 
+
         await expense.update({
-            amount,
-            description,
-            category
+
+            amount: amount,
+
+            description: description,
+
+            category: category
+
         });
 
-        res.status(200).send({
+
+        return res.status(200).json({
+
+            success: true,
+
             message: "Expense updated successfully",
-            data: expense
+
+            expense: expense
+
         });
 
-    } catch (err) {
 
-        res.status(500).send({
-            message: "Error updating expense",
-            error: err.message
+    } catch (error) {
+
+        console.log(error);
+
+        return res.status(500).json({
+
+            success: false,
+
+            message: "Error updating expense"
+
         });
-
     }
-
 };
 
 
+
 module.exports = {
+
     addExpense,
+
     getExpenses,
+
     deleteExpense,
+
     updateExpense
+
 };

@@ -1,4 +1,5 @@
-const form = document.getElementById("loginForm");
+const form =
+    document.getElementById("loginForm");
 
 const message =
     document.getElementById("message");
@@ -12,18 +13,16 @@ form.addEventListener(
 
 
         const email =
-            document.getElementById("email").value.trim();
+            document
+                .getElementById("email")
+                .value
+                .trim();
 
 
         const password =
-            document.getElementById("password").value;
-
-
-        message.textContent =
-            "Logging in...";
-
-        message.style.color =
-            "black";
+            document
+                .getElementById("password")
+                .value;
 
 
         try {
@@ -32,17 +31,24 @@ form.addEventListener(
                 await fetch(
                     "http://localhost:3000/api/auth/login",
                     {
+
                         method: "POST",
 
                         headers: {
+
                             "Content-Type":
                                 "application/json"
+
                         },
 
                         body: JSON.stringify({
-                            email,
-                            password
+
+                            email: email,
+
+                            password: password
+
                         })
+
                     }
                 );
 
@@ -63,21 +69,32 @@ form.addEventListener(
                     "green";
 
 
-                // Save user information
+                // =========================
+                // SAVE JWT
+                // =========================
+
                 localStorage.setItem(
-                    "loggedInUser",
-                    JSON.stringify(result.user)
+                    "token",
+                    result.token
                 );
 
 
-                // Go to Expense Tracker
+                // Save user information
+
+                localStorage.setItem(
+                    "user",
+                    JSON.stringify(
+                        result.user
+                    )
+                );
+
+
                 setTimeout(() => {
 
                     window.location.href =
                         "Expense.html";
 
                 }, 1000);
-
 
             } else {
 
@@ -92,14 +109,14 @@ form.addEventListener(
 
         } catch (error) {
 
-            console.error(
+            console.log(
                 "Login error:",
                 error
             );
 
 
             message.textContent =
-                "Unable to connect to server.";
+                "Unable to connect to server";
 
             message.style.color =
                 "red";

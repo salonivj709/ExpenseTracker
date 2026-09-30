@@ -24,6 +24,11 @@ const Expense = db.define(
         category: {
             type: DataTypes.STRING,
             allowNull: false
+        },
+
+        userId: {
+            type: DataTypes.INTEGER,
+            allowNull: false
         }
     },
     {

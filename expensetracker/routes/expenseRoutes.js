@@ -3,34 +3,72 @@ const express = require("express");
 const expenseController =
     require("../controller/expenseController");
 
+const authenticate =
+    require("../middleware/auth");
+
 const router = express.Router();
 
 
-// Add Expense
+// =================================
+// ADD EXPENSE
+// =================================
+
 router.post(
+
     "/expenses",
+
+    authenticate,
+
     expenseController.addExpense
+
 );
 
 
-// Get Expenses
+
+// =================================
+// GET EXPENSES
+// =================================
+
 router.get(
+
     "/expenses",
+
+    authenticate,
+
     expenseController.getExpenses
+
 );
 
 
-// Delete Expense
+
+// =================================
+// DELETE EXPENSE
+// =================================
+
 router.delete(
+
     "/expenses/:id",
+
+    authenticate,
+
     expenseController.deleteExpense
+
 );
 
 
-// Update Expense
+
+// =================================
+// UPDATE EXPENSE
+// =================================
+
 router.put(
+
     "/expenses/:id",
+
+    authenticate,
+
     expenseController.updateExpense
+
 );
 
 
