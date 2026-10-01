@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Status</title>
+
+    <link
+        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+        rel="stylesheet"
+    >
+</head>
+
+<body class="bg-light">
+
+<div class="container mt-5">
+    <div class="card shadow mx-auto" style="max-width: 600px;">
+        <div class="card-body text-center p-5">
+
+            <h2 id="title">Checking payment...</h2>
+
+            <p id="message" class="mt-3 text-muted">
+                Please wait while we verify your Cashfree transaction.
+            </p>
+
+            <div
+                id="loader"
+                class="spinner-border text-primary mt-3"
+                role="status"
+            ></div>
+
+            <div class="mt-4">
+                <a
+                    href="Expense.html"
+                    id="backButton"
+                    class="btn btn-primary d-none"
+                >
+                    Back to Expense Tracker
+                </a>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+const token =
+    localStorage.getItem("token");
+
+if (!token) {
+    window.location.href = "login.html";
+}
+
+const params =
+    new URLSearchParams(
+        window.location.search
+    );
+
+const orderId =
+    params.get("order_id");
+
+const title =
+    document.getElementById("title");
+
+const message =
+    document.getElementById("message");
+
+const loader =
+    document.getElementById("loader");
+
+const backButton =
+    document.getElementById("backButton");
+
+async function verifyPayment() {
+
+    if (!orderId) {
+        showFailure("Order ID is missing.");
+        return;
+    }
+
+    try {
+
+        const response =
+            await fetch(
+                `http://localhost:3000/api/payment/verify/${encodeURIComponent(orderId)}`,
+                {
+                    headers: {
+                        "Authorization": token
+                    }
+                }
+            );
+
+        if (response.status === 401) {
+            localStorage.removeItem("token");
+            localStorage.removeItem("user");
+            window.location.href = "login.html";
+            return;
+        }
+
+        const result =
+            await response.json();
+
+        if (!response.ok) {
+            showFailure(
+                result.message ||
+                "Unable to verify payment."
+            );
+            return;
+        }
+
+        if (result.status === "SUCCESS") {
+
+            const user =
+                JSON.parse(
+                    localStorage.getItem("user") ||
+                    "{}"
+                );
+
+            user.premium = true;
+
+            localStorage.setItem(
+                "user",
+                JSON.stringify(user)
+            );
+
+            title.textContent =
+                "Transaction successful";
+
+            title.className =
+                "text-success";
+
+            message.textContent =
+                "Your Premium Membership is now active.";
+
+        } else if (
+            result.status === "PENDING"
+        ) {
+
+            title.textContent =
+                "Payment Pending";
+
+            title.className =
+                "text-warning";
+
+            message.textContent =
+                "Your payment is still being processed. Please check again shortly.";
+
+        } else {
+
+            showFailure(
+                "TRANSACTION FAILED"
+            );
+
+            return;
+        }
+
+        finish();
+
+    } catch (error) {
+
+        console.error(error);
+
+        showFailure(
+            "Unable to verify payment status."
+        );
+    }
+}
+
+function showFailure(text) {
+
+    title.textContent =
+        "TRANSACTION FAILED";
+
+    title.className =
+        "text-danger";
+
+    message.textContent = text;
+
+    finish();
+}
+
+function finish() {
+
+    loader.classList.add("d-none");
+    backButton.classList.remove("d-none");
+}
+
+verifyPayment();
+</script>
+
+</body>
+</html>
