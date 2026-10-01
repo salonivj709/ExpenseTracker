@@ -22,6 +22,17 @@ const User = require("./models/user");
 const Expense = require("./models/expenses");
 const PaymentOrder = require("./models/orders");
 
+// Sequelize associations used by the leaderboard JOIN.
+User.hasMany(Expense, {
+    foreignKey: "userId",
+    sourceKey: "id"
+});
+
+Expense.belongsTo(User, {
+    foreignKey: "userId",
+    targetKey: "id"
+});
+
 const app = express();
 
 app.use(cors());
