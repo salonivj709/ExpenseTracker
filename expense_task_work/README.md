@@ -134,3 +134,23 @@ Paste that commit ID into the assignment.
 ## Important
 
 The included `.env.example` contains placeholders only. Never upload your real Cashfree Secret Key to GitHub.
+
+## Final Leaderboard Optimization
+
+The leaderboard uses a cached `users.totalExpense` value instead of calculating `SUM(expenses.amount)` on every leaderboard request.
+
+- Creating an expense increments `users.totalExpense`.
+- Updating an expense applies only the amount difference.
+- Deleting an expense decrements `users.totalExpense`.
+- All three changes use a database transaction so the expense row and cached total stay in sync.
+- The leaderboard reads only the `users` table and sorts by `totalExpense`.
+
+### Existing database
+
+If the `users` table already contains users/expenses from before this optimization, run once after installing dependencies:
+
+```bash
+npm run backfill:totals
+```
+
+Do not commit `.env`; keep Cashfree credentials in the local environment.

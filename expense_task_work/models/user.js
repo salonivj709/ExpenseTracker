@@ -31,6 +31,15 @@ const User = db.define(
             type: DataTypes.BOOLEAN,
             allowNull: false,
             defaultValue: false
+        },
+
+        // Cached running total used by the leaderboard.
+        // Keeping this on the user avoids recalculating SUM(expenses.amount)
+        // every time the leaderboard is requested.
+        totalExpense: {
+            type: DataTypes.DECIMAL(12, 2),
+            allowNull: false,
+            defaultValue: 0
         }
     },
     {

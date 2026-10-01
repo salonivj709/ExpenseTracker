@@ -1,71 +1,54 @@
 const Expense = require("../models/expenses");
+const User = require("../models/user");
+const db = require("../utils/db-connection");
 
 // ADD EXPENSE
 const addExpense = async (req, res) => {
+    const transaction = await db.transaction();
 
     try {
+        const { amount, description, category } = req.body;
+        const numericAmount = Number(amount);
 
-        const {
-            amount,
-            description,
-            category
-        } = req.body;
-
-
-        if (
-            !amount ||
-            !description ||
-            !category
-        ) {
-
+        if (!Number.isFinite(numericAmount) || numericAmount <= 0 || !description || !category) {
+            await transaction.rollback();
             return res.status(400).json({
-
                 success: false,
-
-                message: "All fields are required"
-
+                message: "Enter a valid amount, description and category"
             });
         }
 
-
-        // IMPORTANT
-        // User comes from JWT
-
-        const expense =
-            await Expense.create({
-
-                amount: amount,
-
-                description: description,
-
-                category: category,
-
+        const expense = await Expense.create(
+            {
+                amount: numericAmount,
+                description,
+                category,
                 userId: req.user.id
+            },
+            { transaction }
+        );
 
-            });
+        // Maintain the cached total atomically. This is the key optimization:
+        // the leaderboard no longer has to SUM the expenses table.
+        await User.increment(
+            { totalExpense: numericAmount },
+            { where: { id: req.user.id }, transaction }
+        );
 
+        await transaction.commit();
 
         return res.status(201).json({
-
             success: true,
-
             message: "Expense added successfully",
-
-            expense: expense
-
+            expense
         });
-
-
     } catch (error) {
-
-        console.log(error);
+        await transaction.rollback().catch(() => {});
+        console.error("Add expense error:", error);
 
         return res.status(500).json({
-
             success: false,
-
             message: "Error adding expense"
-
         });
     }
 };
@@ -129,63 +112,49 @@ const getExpenses = async (req, res) => {
 // =====================================
 
 const deleteExpense = async (req, res) => {
+    const transaction = await db.transaction();
 
     try {
-
-        const id = req.params.id;
-
-
-        // Find expense belonging
-        // to CURRENT USER
-
-        const expense =
-            await Expense.findOne({
-
-                where: {
-
-                    id: id,
-
-                    userId: req.user.id
-
-                }
-
-            });
-
+        const expense = await Expense.findOne({
+            where: {
+                id: req.params.id,
+                userId: req.user.id
+            },
+            transaction,
+            lock: transaction.LOCK.UPDATE
+        });
 
         if (!expense) {
-
+            await transaction.rollback();
             return res.status(404).json({
-
                 success: false,
-
                 message: "Expense not found"
-
             });
         }
 
+        const amount = Number(expense.amount);
 
-        await expense.destroy();
+        await expense.destroy({ transaction });
 
+        // Remove the deleted amount from the cached user total.
+        await User.increment(
+            { totalExpense: -amount },
+            { where: { id: req.user.id }, transaction }
+        );
+
+        await transaction.commit();
 
         return res.status(200).json({
-
             success: true,
-
             message: "Expense deleted successfully"
-
         });
-
-
     } catch (error) {
-
-        console.log(error);
+        await transaction.rollback().catch(() => {});
+        console.error("Delete expense error:", error);
 
         return res.status(500).json({
-
             success: false,
-
             message: "Error deleting expense"
-
         });
     }
 };
@@ -197,85 +166,73 @@ const deleteExpense = async (req, res) => {
 // =====================================
 
 const updateExpense = async (req, res) => {
+    const transaction = await db.transaction();
 
     try {
+        const { amount, description, category } = req.body;
+        const newAmount = Number(amount);
 
-        const id = req.params.id;
-
-
-        const {
-            amount,
-            description,
-            category
-        } = req.body;
-
-
-        // VERY IMPORTANT
-        // Only find expense belonging
-        // to logged-in user
-
-        const expense =
-            await Expense.findOne({
-
-                where: {
-
-                    id: id,
-
-                    userId: req.user.id
-
-                }
-
-            });
-
-
-        if (!expense) {
-
-            return res.status(404).json({
-
+        if (!Number.isFinite(newAmount) || newAmount <= 0 || !description || !category) {
+            await transaction.rollback();
+            return res.status(400).json({
                 success: false,
-
-                message: "Expense not found"
-
+                message: "Enter a valid amount, description and category"
             });
         }
 
-
-        await expense.update({
-
-            amount: amount,
-
-            description: description,
-
-            category: category
-
+        const expense = await Expense.findOne({
+            where: {
+                id: req.params.id,
+                userId: req.user.id
+            },
+            transaction,
+            lock: transaction.LOCK.UPDATE
         });
 
+        if (!expense) {
+            await transaction.rollback();
+            return res.status(404).json({
+                success: false,
+                message: "Expense not found"
+            });
+        }
+
+        const oldAmount = Number(expense.amount);
+        const difference = newAmount - oldAmount;
+
+        await expense.update(
+            {
+                amount: newAmount,
+                description,
+                category
+            },
+            { transaction }
+        );
+
+        if (difference !== 0) {
+            await User.increment(
+                { totalExpense: difference },
+                { where: { id: req.user.id }, transaction }
+            );
+        }
+
+        await transaction.commit();
 
         return res.status(200).json({
-
             success: true,
-
             message: "Expense updated successfully",
-
-            expense: expense
-
+            expense
         });
-
-
     } catch (error) {
-
-        console.log(error);
+        await transaction.rollback().catch(() => {});
+        console.error("Update expense error:", error);
 
         return res.status(500).json({
-
             success: false,
-
             message: "Error updating expense"
-
         });
     }
 };
-
 
 
 module.exports = {

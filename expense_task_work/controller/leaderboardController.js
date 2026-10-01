@@ -1,6 +1,4 @@
-const { fn, col, literal } = require("sequelize");
 const User = require("../models/user");
-const Expense = require("../models/expenses");
 
 const getLeaderboard = async (req, res) => {
     try {
@@ -11,28 +9,14 @@ const getLeaderboard = async (req, res) => {
             });
         }
 
-        // One Sequelize query with a SQL JOIN + aggregation.
-        // This avoids fetching users first and then running one query
-        // per user (the N+1 query problem).
+        // Optimized leaderboard: totalExpense is already maintained on the
+        // users table whenever an expense is created, updated or deleted.
+        // Therefore this request needs only one simple indexed user-table query
+        // instead of joining/grouping the expenses table for every request.
         const users = await User.findAll({
-            attributes: [
-                "id",
-                "name",
-                [
-                    fn("COALESCE", fn("SUM", col("Expenses.amount")), 0),
-                    "totalExpense"
-                ]
-            ],
-            include: [
-                {
-                    model: Expense,
-                    attributes: [],
-                    required: false
-                }
-            ],
-            group: ["User.id", "User.name"],
+            attributes: ["id", "name", "totalExpense"],
             order: [
-                [literal("totalExpense"), "DESC"],
+                ["totalExpense", "DESC"],
                 ["name", "ASC"]
             ]
         });
@@ -41,7 +25,7 @@ const getLeaderboard = async (req, res) => {
             rank: index + 1,
             id: user.id,
             name: user.name,
-            totalExpense: Number(user.get("totalExpense") || 0)
+            totalExpense: Number(user.totalExpense || 0)
         }));
 
         return res.status(200).json({
