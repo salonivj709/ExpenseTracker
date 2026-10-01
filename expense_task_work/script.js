@@ -642,54 +642,149 @@ function logout() {
 }
 
 // ========================================
-// CASHFREE PREMIUM MEMBERSHIP
+// CURRENT USER + PREMIUM MEMBERSHIP
 // ========================================
 
-const premiumBtn =
-    document.getElementById("premiumBtn");
+const premiumBtn = document.getElementById("premiumBtn");
+const premiumText = document.getElementById("premiumText");
+const leaderboardSection = document.getElementById("leaderboardSection");
+const leaderboardBody = document.getElementById("leaderboardBody");
+const refreshLeaderboardBtn = document.getElementById("refreshLeaderboardBtn");
 
-const premiumText =
-    document.getElementById("premiumText");
+let currentUser = JSON.parse(localStorage.getItem("user") || "null");
 
-const loggedInUser =
-    JSON.parse(
-        localStorage.getItem("user") || "null"
-    );
+function updatePremiumUI(user) {
+    currentUser = user;
+    localStorage.setItem("user", JSON.stringify(user));
 
-if (loggedInUser?.premium) {
-    premiumText.textContent =
-        "Premium membership is active.";
+    if (user?.premium) {
+        premiumText.textContent = "You are a premium user now. Premium membership is active.";
+        premiumText.className = "mb-0 text-success fw-semibold";
+        premiumBtn.textContent = "Premium Active";
+        premiumBtn.disabled = true;
+        leaderboardSection.classList.remove("d-none");
+        loadLeaderboard();
+    } else {
+        premiumText.textContent = "Unlock Premium for ₹499";
+        premiumText.className = "mb-0 text-muted";
+        premiumBtn.textContent = "Buy Premium";
+        premiumBtn.disabled = false;
+        leaderboardSection.classList.add("d-none");
+    }
+}
 
-    premiumText.className =
-        "mb-0 text-success";
+async function loadCurrentUser() {
+    try {
+        const response = await fetch(
+            "http://localhost:3000/api/auth/me",
+            { headers: { Authorization: token } }
+        );
 
-    premiumBtn.textContent =
-        "Premium Active";
+        if (response.status === 401) {
+            localStorage.removeItem("token");
+            localStorage.removeItem("user");
+            window.location.href = "login.html";
+            return;
+        }
 
-    premiumBtn.disabled = true;
+        const result = await response.json();
+
+        if (!response.ok || !result.success) {
+            console.error("Unable to load current user:", result);
+            return;
+        }
+
+        updatePremiumUI(result.user);
+    } catch (error) {
+        console.error("Current user error:", error);
+        if (currentUser) updatePremiumUI(currentUser);
+    }
+}
+
+async function loadLeaderboard() {
+    if (!currentUser?.premium) return;
+
+    leaderboardBody.innerHTML = `
+        <tr>
+            <td colspan="3" class="text-center">Loading leaderboard...</td>
+        </tr>
+    `;
+
+    try {
+        const response = await fetch(
+            "http://localhost:3000/api/leaderboard",
+            { headers: { Authorization: token } }
+        );
+
+        if (response.status === 401) {
+            localStorage.removeItem("token");
+            localStorage.removeItem("user");
+            window.location.href = "login.html";
+            return;
+        }
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            leaderboardBody.innerHTML = `
+                <tr><td colspan="3" class="text-center text-danger">
+                    ${result.message || "Unable to load leaderboard"}
+                </td></tr>
+            `;
+            return;
+        }
+
+        if (!result.leaderboard.length) {
+            leaderboardBody.innerHTML = `
+                <tr><td colspan="3" class="text-center">No users found.</td></tr>
+            `;
+            return;
+        }
+
+        leaderboardBody.innerHTML = result.leaderboard.map(user => `
+            <tr ${user.id === currentUser.id ? 'class="table-primary fw-semibold"' : ""}>
+                <td>${user.rank}</td>
+                <td>${escapeHtml(user.name)}${user.id === currentUser.id ? " (You)" : ""}</td>
+                <td>₹${Number(user.totalExpense).toFixed(2)}</td>
+            </tr>
+        `).join("");
+    } catch (error) {
+        console.error("Leaderboard error:", error);
+        leaderboardBody.innerHTML = `
+            <tr><td colspan="3" class="text-center text-danger">
+                Unable to load leaderboard
+            </td></tr>
+        `;
+    }
+}
+
+function escapeHtml(value) {
+    return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
 }
 
 if (premiumBtn) {
-    premiumBtn.addEventListener(
-        "click",
-        startPremiumPayment
-    );
+    premiumBtn.addEventListener("click", startPremiumPayment);
+}
+
+if (refreshLeaderboardBtn) {
+    refreshLeaderboardBtn.addEventListener("click", loadLeaderboard);
 }
 
 async function startPremiumPayment() {
-
     premiumBtn.disabled = true;
     premiumBtn.textContent = "Creating Order...";
 
     try {
-
         const response = await fetch(
             "http://localhost:3000/api/payment/create-order",
             {
                 method: "POST",
-                headers: {
-                    "Authorization": token
-                }
+                headers: { Authorization: token }
             }
         );
 
@@ -700,46 +795,27 @@ async function startPremiumPayment() {
             return;
         }
 
-        const result =
-            await response.json();
+        const result = await response.json();
 
         if (!response.ok) {
-            throw new Error(
-                result.message ||
-                "Unable to create order"
-            );
+            throw new Error(result.message || "Unable to create order");
         }
 
-        const cashfree =
-            Cashfree({
-                mode: "sandbox"
-            });
+        const cashfree = Cashfree({ mode: "sandbox" });
 
-        const checkoutOptions = {
-            paymentSessionId:
-                result.paymentSessionId,
-
+        await cashfree.checkout({
+            paymentSessionId: result.paymentSessionId,
             redirectTarget: "_self"
-        };
-
-        cashfree.checkout(
-            checkoutOptions
-        );
-
+        });
     } catch (error) {
-
-        console.error(
-            "Premium payment error:",
-            error
-        );
-
-        alert(
-            error.message ||
-            "Unable to start payment"
-        );
-
+        console.error("Premium payment error:", error);
+        alert(error.message || "Unable to start payment");
         premiumBtn.disabled = false;
-        premiumBtn.textContent =
-            "Buy Premium";
+        premiumBtn.textContent = "Buy Premium";
     }
 }
+
+// Always fetch the premium flag from the database on page load.
+// This makes premium status survive refresh and re-login.
+loadCurrentUser();
+

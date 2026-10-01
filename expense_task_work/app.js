@@ -15,6 +15,9 @@ const authRoutes =
 const paymentRoutes =
     require("./routes/paymentRoutes");
 
+const leaderboardRoutes =
+    require("./routes/leaderboardRoutes");
+
 const User = require("./models/user");
 const Expense = require("./models/expenses");
 const PaymentOrder = require("./models/orders");
@@ -47,6 +50,7 @@ app.get("/", (req, res) => {
 app.use("/api", expenseRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/payment", paymentRoutes);
+app.use("/api/leaderboard", leaderboardRoutes);
 
 // =================================
 // DATABASE

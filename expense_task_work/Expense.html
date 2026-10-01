@@ -34,6 +34,29 @@
         </div>
     </div>
 
+    <!-- Premium Leaderboard -->
+    <div id="leaderboardSection" class="card shadow mb-4 d-none">
+        <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Premium User Leaderboard</h5>
+            <button id="refreshLeaderboardBtn" class="btn btn-sm btn-light">Refresh</button>
+        </div>
+        <div class="card-body">
+            <p class="text-muted mb-3">Users ranked by their total expenses.</p>
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Rank</th>
+                            <th>User</th>
+                            <th>Total Expense</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leaderboardBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
     <div class="card shadow">
 
         <div class="card-header bg-primary text-white">

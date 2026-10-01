@@ -234,7 +234,38 @@ const login = async (req, res) => {
 };
 
 
+// =============================
+// CURRENT USER
+// =============================
+const getCurrentUser = async (req, res) => {
+    try {
+        const user = await User.findByPk(req.user.id, {
+            attributes: ["id", "name", "email", "premium"]
+        });
+
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: "User does not exist"
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            user
+        });
+    } catch (error) {
+        console.log("Get current user error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Server error"
+        });
+    }
+};
+
+
 module.exports = {
     signup,
-    login
+    login,
+    getCurrentUser
 };
