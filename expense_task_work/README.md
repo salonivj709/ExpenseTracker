@@ -154,3 +154,94 @@ npm run backfill:totals
 ```
 
 Do not commit `.env`; keep Cashfree credentials in the local environment.
+## 8. AI Expense Categorization
+
+The Expense Tracker now uses Gemini AI to suggest a category automatically from the expense description.
+
+Example:
+
+- `Lunch at Domino's` → `Food`
+- `Petrol for bike` → `Fuel`
+- `Movie at PVR` → `Movie`
+- `Bought a new shirt` → `Shopping`
+
+### How it works
+
+1. The user types an expense description.
+2. The frontend waits briefly and calls `POST /api/ai/categorize`.
+3. The backend sends the description to Gemini through `ai.js`.
+4. Gemini is instructed to return only one of the application's four categories.
+5. The returned category is automatically selected in the expense form.
+
+The Gemini API key is read only on the backend from `GEMINI_API_KEY`; it is never sent to the browser.
+
+### Configure Gemini
+
+Copy `.env.example` to `.env` and add your Gemini API key:
+
+```text
+GEMINI_API_KEY=YOUR_GEMINI_API_KEY
+GEMINI_MODEL=gemini-3.8-flash
+GEMINI_FALLBACK_MODEL=gemini-3.5-flash-lite
+```
+
+Then run:
+
+```bash
+npm install
+npm start
+```
+
+If Gemini is temporarily unavailable, the expense form continues to work and the user can choose a category manually.
+
+
+
+### AI categorization
+The app sends an authenticated request to `/api/ai/categorize`. The backend keeps the Gemini API key private, retries temporary Gemini 5xx/429 errors with exponential backoff, and falls back from the primary model to a Flash-Lite model if the primary model is temporarily unavailable.
+
+## 9. AI Monthly Budget Planner
+
+The app now includes an AI-powered Monthly Budget Planner.
+
+### What it does
+
+The user enters:
+
+- Monthly income
+- Optional savings goal
+
+The backend reads the user's recorded expense history, groups spending by category, and sends only the summarized spending data to Gemini. The AI returns a balanced monthly plan containing:
+
+- Suggested savings amount
+- Planned expense amount
+- Category-wise spending limits
+- A short explanation
+- Practical saving tips
+
+The generated budget is validated on the backend so the suggested category allocations plus savings equal the user's monthly income.
+
+### API
+
+```text
+POST /api/ai/budget-plan
+```
+
+The endpoint is protected by JWT authentication, so a user can only generate a plan from their own expense history.
+
+### Example
+
+```text
+Monthly income: ₹30,000
+Savings goal: ₹8,000
+
+AI Suggested Savings: ₹8,000
+Planned Expenses: ₹22,000
+
+Food       ₹6,000
+Fuel       ₹3,000
+Shopping   ₹5,000
+Movie      ₹2,000
+Other      ₹6,000
+```
+
+The budget planner is an additional AI feature beyond automatic expense categorization and is designed to be demonstrated directly from the Expense Tracker dashboard.

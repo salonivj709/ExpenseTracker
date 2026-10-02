@@ -57,6 +57,86 @@
         </div>
     </div>
 
+    <!-- AI Monthly Budget Planner -->
+    <div class="card shadow mb-4 border-0" id="aiBudgetSection">
+        <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+            <div>
+                <h4 class="mb-0">🤖 AI Monthly Budget Planner</h4>
+                <small class="text-white-50">Get a personalized budget from your income and spending history.</small>
+            </div>
+            <span class="badge bg-info text-dark">AI Powered</span>
+        </div>
+
+        <div class="card-body">
+            <form id="budgetForm" class="row g-3 align-items-end">
+                <div class="col-md-4">
+                    <label for="monthlyIncome" class="form-label fw-semibold">Monthly Income</label>
+                    <input type="number" min="1" step="0.01" class="form-control" id="monthlyIncome" placeholder="e.g. 30000" required>
+                </div>
+
+                <div class="col-md-4">
+                    <label for="savingsGoal" class="form-label fw-semibold">Savings Goal <span class="text-muted">(optional)</span></label>
+                    <input type="number" min="0" step="0.01" class="form-control" id="savingsGoal" placeholder="e.g. 8000">
+                </div>
+
+                <div class="col-md-4">
+                    <button type="submit" id="generateBudgetBtn" class="btn btn-dark w-100">
+                        ✨ Generate AI Budget
+                    </button>
+                </div>
+            </form>
+
+            <div id="budgetStatus" class="small mt-3 text-muted">Enter your income and let AI create your monthly plan.</div>
+
+            <div id="budgetResult" class="d-none mt-4">
+                <div class="row g-3 mb-3">
+                    <div class="col-md-4">
+                        <div class="p-3 rounded bg-light border h-100">
+                            <div class="text-muted small">AI Suggested Savings</div>
+                            <div id="budgetSavings" class="fs-3 fw-bold text-success">₹0</div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="p-3 rounded bg-light border h-100">
+                            <div class="text-muted small">Planned Expenses</div>
+                            <div id="budgetExpenses" class="fs-3 fw-bold text-primary">₹0</div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="p-3 rounded bg-light border h-100">
+                            <div class="text-muted small">Monthly Income</div>
+                            <div id="budgetIncome" class="fs-3 fw-bold">₹0</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="alert alert-info mb-3">
+                    <strong>🧠 AI Recommendation:</strong>
+                    <span id="budgetSummary"></span>
+                </div>
+
+                <h6 class="fw-bold">Suggested Category Limits</h6>
+                <div class="table-responsive">
+                    <table class="table table-bordered align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Category</th>
+                                <th>Suggested Amount</th>
+                                <th>Why AI Suggested It</th>
+                            </tr>
+                        </thead>
+                        <tbody id="budgetAllocations"></tbody>
+                    </table>
+                </div>
+
+                <div id="budgetTipsBox" class="mt-3">
+                    <h6 class="fw-bold">💡 AI Saving Tips</h6>
+                    <ul id="budgetTips" class="mb-0"></ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="card shadow">
 
         <div class="card-header bg-primary text-white">
@@ -101,6 +181,9 @@
                             <option>Fuel</option>
                             <option>Shopping</option>
                         </select>
+                        <div id="aiSuggestion" class="small text-muted mt-1">
+                            AI will suggest a category from your description.
+                        </div>
                     </div>
 
                     <div class="col-md-2">
