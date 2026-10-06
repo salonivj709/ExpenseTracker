@@ -26,6 +26,12 @@ const Expense = db.define(
             allowNull: false
         },
 
+        note: {
+            type: DataTypes.STRING(500),
+            allowNull: true,
+            defaultValue: null
+        },
+
         userId: {
             type: DataTypes.INTEGER,
             allowNull: false

@@ -7,7 +7,7 @@ const addExpense = async (req, res) => {
     const transaction = await db.transaction();
 
     try {
-        const { amount, description, category } = req.body;
+        const { amount, description, category, note } = req.body;
         const numericAmount = Number(amount);
 
         if (!Number.isFinite(numericAmount) || numericAmount <= 0 || !description || !category) {
@@ -23,6 +23,7 @@ const addExpense = async (req, res) => {
                 amount: numericAmount,
                 description,
                 category,
+                note: note ? String(note).trim().slice(0, 500) : null,
                 userId: req.user.id
             },
             { transaction }
@@ -169,7 +170,7 @@ const updateExpense = async (req, res) => {
     const transaction = await db.transaction();
 
     try {
-        const { amount, description, category } = req.body;
+        const { amount, description, category, note } = req.body;
         const newAmount = Number(amount);
 
         if (!Number.isFinite(newAmount) || newAmount <= 0 || !description || !category) {
@@ -204,7 +205,8 @@ const updateExpense = async (req, res) => {
             {
                 amount: newAmount,
                 description,
-                category
+                category,
+                note: note ? String(note).trim().slice(0, 500) : null
             },
             { transaction }
         );

@@ -6,7 +6,9 @@
   "scripts": {
     "start": "node app.js",
     "dev": "node app.js",
-    "backfill:totals": "node utils/backfill-total-expense.js"
+    "backfill:totals": "node utils/backfill-total-expense.js",
+    "migrate:note": "node utils/run-migration.js up",
+    "rollback:note": "node utils/run-migration.js down"
   },
   "keywords": [],
   "author": "",

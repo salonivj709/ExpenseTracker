@@ -65,9 +65,8 @@ db.authenticate()
             "Database connected successfully"
         );
 
-        return db.sync({
-            alter: true
-        });
+        // Keep schema changes explicit and version-controlled through migrations.
+        return db.sync();
     })
     .then(() => {
         console.log(

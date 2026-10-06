@@ -167,6 +167,7 @@ form.addEventListener("submit", async (e) => {
 
     const category =
         document.getElementById("category").value;
+    const note = document.getElementById("note")?.value.trim() || "";
 
 
     // ========================================
@@ -179,7 +180,8 @@ form.addEventListener("submit", async (e) => {
             editId,
             amount,
             description,
-            category
+            category,
+            note
         );
 
         return;
@@ -193,7 +195,8 @@ form.addEventListener("submit", async (e) => {
     await addExpense(
         amount,
         description,
-        category
+        category,
+        note
     );
 
 });
@@ -276,7 +279,8 @@ async function getExpenses() {
 async function addExpense(
     amount,
     description,
-    category
+    category,
+    note = ""
 ) {
 
     try {
@@ -302,7 +306,8 @@ async function addExpense(
 
                     description: description,
 
-                    category: category
+                    category: category,
+                    note: note
 
                 })
             }
@@ -386,7 +391,8 @@ async function updateExpense(
     id,
     amount,
     description,
-    category
+    category,
+    note = ""
 ) {
 
     try {
@@ -414,7 +420,8 @@ async function updateExpense(
                         description,
 
                     category:
-                        category
+                        category,
+                    note: note
 
                 })
             }
@@ -723,6 +730,8 @@ async function editExpense(id) {
         document.getElementById(
             "category"
         ).value = expense.category;
+        const noteInput = document.getElementById("note");
+        if (noteInput) noteInput.value = expense.note || "";
 
 
         // Store ID
