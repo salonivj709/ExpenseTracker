@@ -36,11 +36,21 @@
         </button>
 
     </form>
-    <p id="message"></p>
+
+    <button type="button" id="forgotPasswordButton" class="forgot-password-btn">Forgot Password?</button>
+
+    <form id="forgotPasswordForm" class="form-group" hidden>
+        <label for="forgotEmail">Enter your registered email</label>
+        <input type="email" id="forgotEmail" placeholder="Enter your email address" required>
+        <button class="login-btn" id="sendResetEmailButton" type="submit">Send Email</button>
+        <button type="button" id="backToLoginButton" class="forgot-password-btn">Back to Login</button>
+    </form>
+    <p id="message" role="status" aria-live="polite"></p>
     </div>
 
     
 
+    <script src="https://cdn.jsdelivr.net/npm/axios@1.7.9/dist/axios.min.js"></script>
     <script src="login.js"></script>
 
 </body>

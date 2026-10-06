@@ -30,8 +30,6 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Serve the frontend from this project folder.
-// Dotfiles such as .env are denied by default.
 app.use(
     express.static(__dirname, {
         dotfiles: "deny"
@@ -52,6 +50,7 @@ app.get("/", (req, res) => {
 // =================================
 app.use("/api", expenseRoutes);
 app.use("/api/auth", authRoutes);
+app.use("/password", require("./routes/forgotPasswordRoutes"));
 app.use("/api/payment", paymentRoutes);
 app.use("/api/leaderboard", leaderboardRoutes);
 app.use("/api/ai", aiRoutes);
