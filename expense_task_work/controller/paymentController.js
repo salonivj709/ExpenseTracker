@@ -98,9 +98,9 @@ const verifyPayment = async (req, res) => {
 
         const order = await PaymentOrder.findOne({
             where: {
-                orderId,
-                userId: req.user.id
-            }
+    orderId,
+    userId: req.user.id
+}
         });
 
         if (!order) {

@@ -19,7 +19,48 @@ const expenseList = document.getElementById("expenseList");
 const API_URL = "http://localhost:3000/api/expenses";
 
 let editId = null;
+let currentExpenses = [];
 let aiCategoryTimer = null;
+
+// The current database schema does not store transaction dates. Keep dates for
+// expenses created in this browser so the frontend-only report can filter new
+// records without inventing dates for older transactions.
+function getExpenseReportDatesKey() {
+    let userId = "unknown-user";
+    try {
+        const storedUser = JSON.parse(localStorage.getItem("user") || "null");
+        if (storedUser?.id !== undefined && storedUser?.id !== null) {
+            userId = String(storedUser.id);
+        }
+    } catch (_) {
+        // Use the fallback key if the cached user data is invalid.
+    }
+    return `expenseReportDates:${userId}`;
+}
+
+function readExpenseReportDates() {
+    try {
+        const value = JSON.parse(localStorage.getItem(getExpenseReportDatesKey()) || "{}");
+        return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+    } catch (_) {
+        return {};
+    }
+}
+
+function saveExpenseReportDate(expenseId, date = new Date()) {
+    if (expenseId === undefined || expenseId === null) return;
+    const dates = readExpenseReportDates();
+    dates[String(expenseId)] = date.toISOString();
+    localStorage.setItem(getExpenseReportDatesKey(), JSON.stringify(dates));
+}
+
+function attachExpenseReportDates(expenses) {
+    const dates = readExpenseReportDates();
+    return expenses.map(expense => ({
+        ...expense,
+        reportDate: expense.date || expense.createdAt || expense.created_at || expense.createdOn || dates[String(expense.id)] || null
+    }));
+}
 let lastAiDescription = "";
 
 // ========================================
@@ -208,6 +249,10 @@ async function getExpenses() {
         }
 
 
+        // Keep the current records available to the frontend report.
+        currentExpenses = attachExpenseReportDates(Array.isArray(result.expenses) ? result.expenses : []);
+        renderFinancialReport();
+
         // Clear old expenses
 
         expenseList.innerHTML = "";
@@ -309,9 +354,18 @@ async function addExpense(
 
             // Add newly created expense
 
-            addNewExpenseUI(
-                result.expense
-            );
+            if (result.expense) {
+                // Save today's date for this newly created expense in this
+                // browser; older rows without dates remain available in All time.
+                saveExpenseReportDate(result.expense.id);
+                const expenseWithReportDate = {
+                    ...result.expense,
+                    reportDate: result.expense.date || result.expense.createdAt || result.expense.created_at || new Date().toISOString()
+                };
+                addNewExpenseUI(expenseWithReportDate);
+                currentExpenses.push(expenseWithReportDate);
+            }
+            renderFinancialReport();
 
 
         } else {
@@ -742,6 +796,7 @@ function updatePremiumUI(user) {
         premiumText.className = "mb-0 text-success fw-semibold";
         premiumBtn.textContent = "Premium Active";
         premiumBtn.disabled = true;
+        updateReportPremiumState(true);
         leaderboardSection.classList.remove("d-none");
         loadLeaderboard();
     } else {
@@ -749,6 +804,7 @@ function updatePremiumUI(user) {
         premiumText.className = "mb-0 text-muted";
         premiumBtn.textContent = "Buy Premium";
         premiumBtn.disabled = false;
+        updateReportPremiumState(false);
         leaderboardSection.classList.add("d-none");
     }
 }
@@ -894,6 +950,157 @@ async function startPremiumPayment() {
         premiumBtn.textContent = "Buy Premium";
     }
 }
+
+// ========================================
+// FRONTEND FINANCIAL REPORTS
+// ========================================
+const reportPeriod = document.getElementById("reportPeriod");
+const reportDate = document.getElementById("reportDate");
+const downloadReportBtn = document.getElementById("downloadReportBtn");
+const reportNotice = document.getElementById("reportNotice");
+const reportTableBody = document.getElementById("reportTableBody");
+const reportIncomeTotal = document.getElementById("reportIncomeTotal");
+const reportExpenseTotal = document.getElementById("reportExpenseTotal");
+const reportBalance = document.getElementById("reportBalance");
+const reportPremiumBadge = document.getElementById("reportPremiumBadge");
+
+if (reportDate) reportDate.value = new Date().toISOString().slice(0, 10);
+if (reportPeriod) reportPeriod.addEventListener("change", renderFinancialReport);
+if (reportDate) reportDate.addEventListener("change", renderFinancialReport);
+if (downloadReportBtn) downloadReportBtn.addEventListener("click", downloadFinancialReport);
+
+function updateReportPremiumState(isPremium) {
+    if (!downloadReportBtn) return;
+    downloadReportBtn.disabled = !isPremium;
+    downloadReportBtn.title = isPremium ? "Download the current report as CSV" : "Premium membership is required";
+    if (reportPremiumBadge) {
+        reportPremiumBadge.textContent = isPremium ? "PREMIUM ACTIVE" : "PREMIUM FEATURE";
+        reportPremiumBadge.className = isPremium ? "badge bg-success" : "badge bg-warning text-dark";
+    }
+    if (reportNotice) {
+        reportNotice.className = isPremium ? "alert alert-success py-2" : "alert alert-info py-2";
+        reportNotice.textContent = isPremium
+            ? "Premium is active. You can download the currently filtered report as a CSV file."
+            : "Upgrade to Premium to enable report downloads. You can preview the available frontend report below.";
+    }
+}
+
+function getIncomeRecordsForReport() {
+    // Frontend-only task: support an income array if the app or a later task stores one.
+    // No income API is invented here because backend work is explicitly out of scope.
+    try {
+        const records = JSON.parse(localStorage.getItem("incomes") || "[]");
+        if (!Array.isArray(records)) return [];
+        return records.map(item => ({
+            ...item,
+            type: "Income",
+            amount: Number(item.amount || item.income || 0),
+            description: item.description || item.source || item.title || "Income",
+            category: item.category || item.source || "Income",
+            reportDate: item.date || item.createdAt || item.created_at || item.createdDate || null
+        }));
+    } catch (error) {
+        console.warn("Could not read frontend income records:", error);
+        return [];
+    }
+}
+
+function normalizedReportDate(record) {
+    const raw = record.reportDate || record.date || record.createdAt || record.created_at || record.createdOn || null;
+    if (!raw) return null;
+    const parsed = new Date(raw);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function isDateInSelectedPeriod(recordDate, period, selectedDate) {
+    if (period === "all") return true;
+    if (!recordDate) return false;
+    const date = new Date(recordDate.getFullYear(), recordDate.getMonth(), recordDate.getDate());
+    const selected = new Date(`${selectedDate}T00:00:00`);
+    if (Number.isNaN(selected.getTime())) return false;
+    if (period === "daily") return date.getTime() === selected.getTime();
+    if (period === "weekly") {
+        const start = new Date(selected);
+        const day = (start.getDay() + 6) % 7; // Monday-start week
+        start.setDate(start.getDate() - day);
+        const end = new Date(start);
+        end.setDate(start.getDate() + 7);
+        return date >= start && date < end;
+    }
+    if (period === "monthly") return date.getFullYear() === selected.getFullYear() && date.getMonth() === selected.getMonth();
+    return true;
+}
+
+function getFilteredReportRecords() {
+    const expenses = attachExpenseReportDates(currentExpenses).map(item => ({
+        ...item,
+        type: "Expense",
+        amount: Number(item.amount || 0),
+        description: item.description || "Expense",
+        category: item.category || "Uncategorized",
+        reportDate: item.reportDate || item.date || item.createdAt || item.created_at || item.createdOn || null
+    }));
+    const records = [...expenses, ...getIncomeRecordsForReport()];
+    const period = reportPeriod?.value || "all";
+    const selectedDate = reportDate?.value || new Date().toISOString().slice(0, 10);
+    return records.filter(record => isDateInSelectedPeriod(normalizedReportDate(record), period, selectedDate))
+        .sort((a, b) => (normalizedReportDate(b)?.getTime() || 0) - (normalizedReportDate(a)?.getTime() || 0));
+}
+
+function formatReportDate(value) {
+    const date = normalizedReportDate(value);
+    return date ? date.toLocaleDateString("en-IN") : "Date unavailable";
+}
+
+function renderFinancialReport() {
+    if (!reportTableBody) return;
+    const period = reportPeriod?.value || "monthly";
+    const records = getFilteredReportRecords();
+    const income = records.filter(row => row.type === "Income").reduce((sum, row) => sum + row.amount, 0);
+    const expenses = records.filter(row => row.type === "Expense").reduce((sum, row) => sum + row.amount, 0);
+    reportIncomeTotal.textContent = formatINR(income);
+    reportExpenseTotal.textContent = formatINR(expenses);
+    reportBalance.textContent = formatINR(income - expenses);
+    reportBalance.className = `fs-3 fw-bold ${income - expenses >= 0 ? "text-success" : "text-danger"}`;
+
+    if (!records.length) {
+        const missingDates = period !== "all" && currentExpenses.some(row => !normalizedReportDate(row));
+        reportTableBody.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-4">${missingDates ? "No dated records match this period. Older expense records without a date appear under All time." : "No records found for this period."}</td></tr>`;
+        return;
+    }
+    reportTableBody.innerHTML = records.map(row => `
+        <tr>
+            <td>${escapeHtml(formatReportDate(row))}</td>
+            <td><span class="badge ${row.type === "Income" ? "bg-success" : "bg-danger"}">${row.type}</span></td>
+            <td>${escapeHtml(row.description)}</td>
+            <td>${escapeHtml(row.category)}</td>
+            <td class="text-end fw-semibold">${formatINR(row.amount)}</td>
+        </tr>`).join("");
+}
+
+function downloadFinancialReport() {
+    if (!currentUser?.premium) {
+        alert("Report downloads are available to Premium users only.");
+        return;
+    }
+    const records = getFilteredReportRecords();
+    const headers = ["Date", "Type", "Description", "Category", "Amount"];
+    const escapeCsv = value => `"${String(value ?? "").replace(/"/g, '""')}"`;
+    const lines = [headers, ...records.map(row => [formatReportDate(row), row.type, row.description, row.category, Number(row.amount || 0).toFixed(2)])];
+    const csv = "\uFEFF" + lines.map(line => line.map(escapeCsv).join(",")).join("\r\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `expense-tracker-${reportPeriod?.value || "all"}-report-${reportDate?.value || new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+}
+
+updateReportPremiumState(Boolean(currentUser?.premium));
+renderFinancialReport();
 
 // Always fetch the premium flag from the database on page load.
 // This makes premium status survive refresh and re-login.

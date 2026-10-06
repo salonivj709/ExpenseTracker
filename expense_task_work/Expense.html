@@ -137,6 +137,54 @@
         </div>
     </div>
 
+    <!-- Report Generation (Premium Feature) -->
+    <section class="card shadow-sm mb-4 border-0" id="reportSection">
+        <div class="card-header bg-primary text-white d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <div>
+                <h4 class="mb-1">📊 Financial Reports</h4>
+                <small class="text-white-50">Review your spending and income by day, week, or month.</small>
+            </div>
+            <span id="reportPremiumBadge" class="badge bg-warning text-dark">PREMIUM FEATURE</span>
+        </div>
+        <div class="card-body">
+            <div class="row g-3 align-items-end mb-4">
+                <div class="col-sm-6 col-md-4">
+                    <label for="reportPeriod" class="form-label fw-semibold">Report period</label>
+                    <select id="reportPeriod" class="form-select">
+                        <option value="daily">Daily</option>
+                        <option value="weekly">Weekly</option>
+                        <option value="monthly" selected>Monthly</option>
+                        <option value="all">All time</option>
+                    </select>
+                </div>
+                <div class="col-sm-6 col-md-4">
+                    <label for="reportDate" class="form-label fw-semibold">Choose date</label>
+                    <input id="reportDate" type="date" class="form-control">
+                </div>
+                <div class="col-md-4">
+                    <button id="downloadReportBtn" type="button" class="btn btn-success w-100" disabled title="Premium membership is required">
+                        ⬇ Download report (CSV)
+                    </button>
+                </div>
+            </div>
+            <div id="reportNotice" class="alert alert-info py-2" role="status">
+                Upgrade to Premium to download your report. Reports include expense records and any income records available to the frontend.
+            </div>
+            <div class="row g-3 mb-4">
+                <div class="col-md-4"><div class="rounded border bg-light p-3 h-100"><div class="small text-muted">Total Income</div><div id="reportIncomeTotal" class="fs-3 fw-bold text-success">₹0.00</div></div></div>
+                <div class="col-md-4"><div class="rounded border bg-light p-3 h-100"><div class="small text-muted">Total Expenses</div><div id="reportExpenseTotal" class="fs-3 fw-bold text-danger">₹0.00</div></div></div>
+                <div class="col-md-4"><div class="rounded border bg-light p-3 h-100"><div class="small text-muted">Balance</div><div id="reportBalance" class="fs-3 fw-bold">₹0.00</div></div></div>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover table-bordered align-middle mb-0">
+                    <thead class="table-light"><tr><th>Date</th><th>Type</th><th>Description</th><th>Category</th><th class="text-end">Amount</th></tr></thead>
+                    <tbody id="reportTableBody"><tr><td colspan="5" class="text-center text-muted py-4">Loading report…</td></tr></tbody>
+                </table>
+            </div>
+            <p class="small text-muted mt-2 mb-0">Note: Daily, weekly, and monthly filtering requires a date on each record. Older expense records without dates are shown only in “All time”. Income rows are read from frontend income data when available; backend integration is outside this frontend task.</p>
+        </div>
+    </section>
+
     <div class="card shadow">
 
         <div class="card-header bg-primary text-white">
