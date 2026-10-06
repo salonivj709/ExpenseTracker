@@ -24,6 +24,7 @@ const aiRoutes =
 const User = require("./models/user");
 const Expense = require("./models/expenses");
 const PaymentOrder = require("./models/orders");
+const ForgotPasswordRequest = require("./models/forgotPasswordRequest");
 
 const app = express();
 
