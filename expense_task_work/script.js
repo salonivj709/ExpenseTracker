@@ -20,6 +20,8 @@ const API_URL = "http://localhost:3000/api/expenses";
 
 let editId = null;
 let currentExpenses = [];
+let currentExpensePage = 1;
+const EXPENSES_PER_PAGE = 10;
 let aiCategoryTimer = null;
 
 // The current database schema does not store transaction dates. Keep dates for
@@ -249,25 +251,11 @@ async function getExpenses() {
         }
 
 
-        // Keep the current records available to the frontend report.
+        // Keep every record available to reports, but render only 10 per page.
         currentExpenses = attachExpenseReportDates(Array.isArray(result.expenses) ? result.expenses : []);
+        currentExpensePage = 1;
         renderFinancialReport();
-
-        // Clear old expenses
-
-        expenseList.innerHTML = "";
-
-
-        // Backend returns:
-        // result.expenses
-
-        result.expenses.forEach(
-            expense => {
-
-                addNewExpenseUI(expense);
-
-            }
-        );
+        renderExpensePage();
 
 
     } catch (error) {
@@ -362,8 +350,10 @@ async function addExpense(
                     ...result.expense,
                     reportDate: result.expense.date || result.expense.createdAt || result.expense.created_at || new Date().toISOString()
                 };
-                addNewExpenseUI(expenseWithReportDate);
-                currentExpenses.push(expenseWithReportDate);
+                // New expenses appear at the top, just like the API's newest-first order.
+                currentExpenses.unshift(expenseWithReportDate);
+                currentExpensePage = 1;
+                renderExpensePage();
             }
             renderFinancialReport();
 
@@ -584,6 +574,65 @@ async function deleteExpense(id) {
         );
 
     }
+}
+
+
+// ========================================
+// EXPENSE PAGINATION (10 ITEMS PER PAGE)
+// ========================================
+
+function renderExpensePage() {
+    if (!expenseList) return;
+
+    const totalExpenses = currentExpenses.length;
+    const totalPages = Math.max(1, Math.ceil(totalExpenses / EXPENSES_PER_PAGE));
+    currentExpensePage = Math.min(Math.max(1, currentExpensePage), totalPages);
+
+    const startIndex = (currentExpensePage - 1) * EXPENSES_PER_PAGE;
+    const pageExpenses = currentExpenses.slice(startIndex, startIndex + EXPENSES_PER_PAGE);
+    expenseList.innerHTML = "";
+
+    pageExpenses.forEach(expense => addNewExpenseUI(expense));
+
+    const pagination = document.getElementById("expensePagination");
+    if (!pagination) return;
+
+    if (totalExpenses === 0) {
+        pagination.innerHTML = '<div class="text-muted small">No expenses yet.</div>';
+        return;
+    }
+
+    const firstShown = startIndex + 1;
+    const lastShown = Math.min(startIndex + pageExpenses.length, totalExpenses);
+    const button = (label, page, disabled = false, active = false, aria = label) => `
+        <button type="button" class="btn btn-sm ${active ? 'btn-primary' : 'btn-outline-primary'}"
+            data-page="${page}" ${disabled ? 'disabled' : ''} aria-label="${aria}">${label}</button>`;
+
+    pagination.innerHTML = `
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3 mb-4">
+            <span class="small text-muted" aria-live="polite">
+                Showing ${firstShown}–${lastShown} of ${totalExpenses} expenses · Page ${currentExpensePage} of ${totalPages}
+            </span>
+            <nav aria-label="Expense pages" class="d-flex flex-wrap gap-1">
+                ${button('First', 1, currentExpensePage === 1, false, 'First page')}
+                ${button('Previous', currentExpensePage - 1, currentExpensePage === 1, false, 'Previous page')}
+                ${Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter(page => page === 1 || page === totalPages || Math.abs(page - currentExpensePage) <= 1)
+                    .map(page => button(String(page), page, false, page === currentExpensePage, `Page ${page}`))
+                    .join('')}
+                ${button('Next', currentExpensePage + 1, currentExpensePage === totalPages, false, 'Next page')}
+                ${button('Last', totalPages, currentExpensePage === totalPages, false, 'Last page')}
+            </nav>
+        </div>`;
+
+    pagination.querySelectorAll('button[data-page]').forEach(buttonElement => {
+        buttonElement.addEventListener('click', () => {
+            currentExpensePage = Number(buttonElement.dataset.page);
+            renderExpensePage();
+            // Keep the expense list in view when moving between pages.
+            expenseList.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    });
 }
 
 
